@@ -15,9 +15,9 @@ $allow_create_folder = true; // Set to false to disable folder creation
 $allow_upload = true; // Set to true to allow upload files
 $allow_direct_link = true; // Set to false to only allow downloads and not direct link
 
-$disallowed_extensions = ['php'];  // must be an array. Extensions disallowed to be uploaded
+$allowed_extensions = array('jpg', 'jpeg', 'gif', 'png', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'); // must be an array. Extensions allowed to be uploaded
 
-$hidden_extensions = ['php']; // must be an array of lowercase file extensions. Extensions hidden in directory index
+$hidden_extensions = array('php'); // must be an array of lowercase file extensions. Extensions hidden in directory index
 
 $PASSWORD = '';  // Set the password, to access the file manager... (optional)
 
@@ -62,12 +62,12 @@ $file = $_REQUEST['file'] ?: '.';
 if($_GET['do'] == 'list') {
 	if (is_dir($file)) {
 		$directory = $file;
-		$result = [];
-		$files = array_diff(scandir($directory), ['.','..']);
+		$result = array();
+		$files = array_diff(scandir($directory), array('.','..'));
 	    foreach($files as $entry) if($entry !== basename(__FILE__) && !in_array(strtolower(pathinfo($entry, PATHINFO_EXTENSION)), $hidden_extensions)) {
     		$i = $directory . '/' . $entry;
 	    	$stat = stat($i);
-	        $result[] = [
+	        $result[] = array(
 	        	'mtime' => $stat['mtime'],
 	        	'size' => $stat['size'],
 	        	'name' => basename($i),
@@ -78,12 +78,12 @@ if($_GET['do'] == 'list') {
 	        	'is_readable' => is_readable($i),
 	        	'is_writable' => is_writable($i),
 	        	'is_executable' => is_executable($i),
-	        ];
+	        );
 	    }
 	} else {
 		err(412,"Not a Directory");
 	}
-	echo json_encode(['success' => true, 'is_writable' => is_writable($file), 'results' =>$result]);
+	echo json_encode(array('success' => true, 'is_writable' => is_writable($file), 'results' =>$result));
 	exit;
 } elseif ($_POST['do'] == 'delete') {
 	if($allow_delete) {
@@ -103,9 +103,19 @@ if($_GET['do'] == 'list') {
 	var_dump($_POST);
 	var_dump($_FILES);
 	var_dump($_FILES['file_data']['tmp_name']);
-	foreach($disallowed_extensions as $ext) 
-		if(preg_match(sprintf('/\.%s$/',preg_quote($ext)), $_FILES['file_data']['name'])) 
-			err(403,"Files of this type are not allowed.");
+
+	$is_extension_allowed = false;
+	foreach($allowed_extensions as $ext) {
+		if(preg_match(sprintf('/\.%s$/i',preg_quote($ext)), $_FILES['file_data']['name'])) {
+			//extension found
+			$is_extension_allowed = true;
+			break;
+		}
+	}
+	//check if extension allowed
+	if(!$is_extension_allowed) {
+		err(403,"Files of this type are not allowed.");
+	}
 
 	var_dump(move_uploaded_file($_FILES['file_data']['tmp_name'], $file.'/'.$_FILES['file_data']['name']));
 	exit;
@@ -121,7 +131,7 @@ if($_GET['do'] == 'list') {
 }
 function rmrf($dir) {
 	if(is_dir($dir)) {
-		$files = array_diff(scandir($dir), ['.','..']);
+		$files = array_diff(scandir($dir), array('.','..'));
 		foreach ($files as $file)
 			rmrf("$dir/$file");
 		rmdir($dir);
@@ -130,11 +140,11 @@ function rmrf($dir) {
 	}
 }
 function is_recursively_deleteable($d) {
-	$stack = [$d];
+	$stack = array($d);
 	while($dir = array_pop($stack)) {
 		if(!is_readable($dir) || !is_writable($dir)) 
 			return false;
-		$files = array_diff(scandir($dir), ['.','..']);
+		$files = array_diff(scandir($dir), array('.','..'));
 		foreach($files as $file) if(is_dir($file)) {
 			$stack[] = "$dir/$file";
 		}
@@ -144,9 +154,9 @@ function is_recursively_deleteable($d) {
 
 // from: http://php.net/manual/en/function.realpath.php#84012
 function get_absolute_path($path) {
-        $path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path);
+        $path = str_replace(array('/', '\\'), DIRECTORY_SEPARATOR, $path);
         $parts = explode(DIRECTORY_SEPARATOR, $path);
-        $absolutes = [];
+        $absolutes = array();
         foreach ($parts as $part) {
             if ('.' == $part) continue;
             if ('..' == $part) {
@@ -160,13 +170,13 @@ function get_absolute_path($path) {
 
 function err($code,$msg) {
 	http_response_code($code);
-	echo json_encode(['error' => ['code'=>intval($code), 'msg' => $msg]]);
+	echo json_encode(array('error' => array('code'=>intval($code), 'msg' => $msg)));
 	exit;
 }
 
 function asBytes($ini_v) {
 	$ini_v = trim($ini_v);
-	$s = ['g'=> 1<<30, 'm' => 1<<20, 'k' => 1<<10];
+	$s = array('g'=> 1<<30, 'm' => 1<<20, 'k' => 1<<10);
 	return intval($ini_v) * ($s[strtolower(substr($ini_v,-1))] ?: 1);
 }
 $MAX_UPLOAD_SIZE = min(asBytes(ini_get('post_max_size')), asBytes(ini_get('upload_max_filesize')));
@@ -174,38 +184,44 @@ $MAX_UPLOAD_SIZE = min(asBytes(ini_get('post_max_size')), asBytes(ini_get('uploa
 <!DOCTYPE html>
 <html><head>
 <meta http-equiv="content-type" content="text/html; charset=utf-8">
-
+<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-beta/css/bootstrap.min.css" />
 <style>
-body {font-family: "lucida grande","Segoe UI",Arial, sans-serif; font-size: 14px;width:1024;padding:1em;margin:0;}
+body {font-family: "lucida grande","Segoe UI",Arial, sans-serif; font-size: 14px;width:100%;padding:1em;margin:0;}
 th {font-weight: normal; color: #1F75CC; background-color: #F0F9FF; padding:.5em 1em .5em .2em; 
 	text-align: left;cursor:pointer;user-select: none;}
 th .indicator {margin-left: 6px }
 thead {border-top: 1px solid #82CFFA; border-bottom: 1px solid #96C4EA;border-left: 1px solid #E7F2FB;
 	border-right: 1px solid #E7F2FB; }
-#top {height:52px;}
-#mkdir {display:inline-block;float:right;padding-top:16px;}
+/*#top {height:52px;}*/
+#mkdir {display:block;padding-top:16px;}
 label { display:block; font-size:11px; color:#555;}
-#file_drop_target {width:500px; padding:12px 0; border: 4px dashed #ccc;font-size:12px;color:#ccc;
-	text-align: center;float:right;margin-right:20px;}
+#file_drop_target {width:100%; padding:12px 0; margin-top:10px; border: 4px dashed #ccc;font-size:12px;color:#ccc;
+	text-align: center;margin-right:20px;}
 #file_drop_target.drag_over {border: 4px dashed #96C4EA; color: #96C4EA;}
 #upload_progress {padding: 4px 0;}
 #upload_progress .error {color:#a00;}
 #upload_progress > div { padding:3px 0;}
 .no_write #mkdir, .no_write #file_drop_target {display: none}
-.progress_track {display:inline-block;width:200px;height:10px;border:1px solid #333;margin: 0 4px 0 10px;}
+.progress_track {display:inline-block;width:100%;height:10px;border:1px solid #333;margin: 0 4px 0 10px;}
 .progress {background-color: #82CFFA;height:10px; }
 footer {font-size:11px; color:#bbbbc5; padding:4em 0 0;text-align: left;}
 footer a, footer a:visited {color:#bbbbc5;}
 #breadcrumb { padding-top:34px; font-size:15px; color:#aaa;display:inline-block;float:left;}
-#folder_actions {width: 50%;float:right;}
+#folder_actions {width: 100%}
 a, a:visited { color:#00c; text-decoration: none}
 a:hover {text-decoration: underline}
 .sort_hide{ display:none;}
 table {border-collapse: collapse;width:100%;}
-thead {max-width: 1024px}
+thead {max-width: 100%}
 td { padding:.2em 1em .2em .2em; border-bottom:1px solid #def;height:30px; font-size:12px;white-space: nowrap;}
 td.first {font-size:14px;white-space: normal;}
-td.empty { color:#777; font-style: italic; text-align: center;padding:3em 0;}
+td.empty { color:#777; font-style: italic; text-align: center;padding:3em 0 }
+table th:last-child {
+	text-align: center;
+}
+table td:last-child {
+	text-align: center;
+}
 .is_dir .size {color:transparent;font-size:0;}
 .is_dir .size:before {content: "--"; font-size:14px;color:#333;}
 .is_dir .download{visibility: hidden}
@@ -226,7 +242,9 @@ a.delete {display:inline-block;
 	padding:4px 0 4px 20px;
 }
 </style>
-<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.3/umd/popper.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-beta/js/bootstrap.min.js"></script>
 <script>
 (function($){
 	$.fn.tablesorter = function() {
@@ -277,21 +295,22 @@ $(function(){
 	$(window).bind('hashchange',list).trigger('hashchange');
 	$('#table').tablesorter();
 	
-	$('.delete').live('click',function(data) {
-		$.post("",{'do':'delete',file:$(this).attr('data-file'),xsrf:XSRF},function(response){
-			list();
-		},'json');
-		return false;
-	});
-
 	$('#mkdir').submit(function(e) {
 		var hashval = window.location.hash.substr(1),
 			$dir = $(this).find('[name=name]');
 		e.preventDefault();
-		$dir.val().length && $.post('?',{'do':'mkdir',name:$dir.val(),xsrf:XSRF,file:hashval},function(data){
-			list();
-		},'json');
-		$dir.val('');
+		if($dir.val().length > 0) {
+			$.post('?',{'do':'mkdir',name:$dir.val(),xsrf:XSRF,file:hashval},'json')
+			.done(function (response) {
+				list();
+			})
+			.fail(function (err) {
+			})
+			.always(function () {
+			});
+		
+			$dir.val('');
+		}
 		return false;
 	});
 <?php if($allow_upload == true): ?>
@@ -316,8 +335,7 @@ $(function(){
 			uploadFile(file);
 		});
 	});
-
-
+	
 	function uploadFile(file) {
 		var folder = window.location.hash.substr(1);
 
@@ -362,6 +380,7 @@ $(function(){
 	}
 <?php endif; ?>
 	function list() {
+		console.log("list folder");
 		var hashval = window.location.hash.substr(1);
 		$.get('?',{'do':'list','file':hashval},function(data) {
 			$tbody.empty();
@@ -382,11 +401,35 @@ $(function(){
 		var $link = $('<a class="name" />')
 			.attr('href', data.is_dir ? '#' + data.path : './'+data.path)
 			.text(data.name);
+		//check if link is a directory
+		if(!data.is_dir) {
+			//is file, not directory
+			$($link).attr('target', '_blank');
+		}
 		var allow_direct_link = <?php echo $allow_direct_link?'true':'false'; ?>;
         	if (!data.is_dir && !allow_direct_link)  $link.css('pointer-events','none');
 		var $dl_link = $('<a/>').attr('href','?do=download&file='+encodeURIComponent(data.path))
 			.addClass('download').text('download');
-		var $delete_link = $('<a href="#" />').attr('data-file',data.path).addClass('delete').text('delete');
+			if(data.is_dir) {
+				$($dl_link).css('display', 'none');
+			}
+		var $delete_link = $('<a href="" />').attr('data-file',data.path).addClass('delete').text('delete').click(function (event){
+			event.preventDefault();
+			var data_type = data.is_dir ? 'folder' : 'file';
+			if(confirm('Delete ' + data_type + ' `' + $(this).attr('data-file') + '`?')) {
+				$.post("",{'do':'delete',file:$(this).attr('data-file'),xsrf:XSRF},'json')
+				.done(function (response) {
+					//console.log('check: ', response);
+					list();
+				})
+				.fail(function (err) {
+					//console.log('failed');
+				})
+				.always(function () {
+					//console.log('oh no');
+				});				
+			}
+		});
 		var perms = [];
 		if(data.is_readable) perms.push('read');
 		if(data.is_writable) perms.push('write');
@@ -429,36 +472,52 @@ $(function(){
 })
 
 </script>
-</head><body>
-<div id="top">
+</head>
+<body>
+<div class="container-fluid">
+<div id="top" class="row">
    <?php if($allow_upload == true): ?>
+   <div class="col-12">
 	<form action="?" method="post" id="mkdir" />
-		<label for=dirname>Create New Folder</label><input id=dirname type=text name=name value="" />
-		<input type="submit" value="create" />
+		<label for="dirname">Create New Folder</label><input id="dirname" type="text" name="name" value="" class="form-control" />
+		<input type="submit" value="create" class="btn btn-primary" />
 	</form>
-
-   <?php endif; ?>
-
-   <?php if($allow_upload == true): ?>
-
-	<div id="file_drop_target">
-		Drag Files Here To Upload
-		<b>or</b>
-		<input type="file" multiple />
 	</div>
    <?php endif; ?>
+
+   <?php if($allow_upload == true): ?>
+	<div class="col-12">
+	<div id="file_drop_target">
+		<div class="d-none d-sm-inline">
+		Drag Files Here To Upload
+		<b>or</b>
+		</div>
+		<input type="file" multiple />
+	</div>
+	</div>
+   <?php endif; ?>
+	<div class="col-12">
 	<div id="breadcrumb">&nbsp;</div>
+	</div>
+<div id="upload_progress" class="col-12"></div>
+<div class="col-12">
+	<table id="table" class="table table-responsive table-striped table-hover">
+	<thead>
+	<tr>
+		<th>Name</th>
+		<th>Size</th>
+		<th>Modified</th>
+		<th>Permissions</th>
+		<th>Actions</th>
+	</tr>
+	</thead>
+	<tbody id="list">
+	</tbody>
+	</table>
 </div>
-
-<div id="upload_progress"></div>
-<table id="table"><thead><tr>
-	<th>Name</th>
-	<th>Size</th>
-	<th>Modified</th>
-	<th>Permissions</th>
-	<th>Actions</th>
-</tr></thead><tbody id="list">
-
-</tbody></table>
-<footer>simple php filemanager by <a href="https://github.com/jcampbell1">jcampbell1</a></footer>
+<div class="col-12">
+	<footer>simple php filemanager by <a href="https://github.com/jcampbell1">jcampbell1</a></footer>
+</div>
+</div>
+</div>
 </body></html>
