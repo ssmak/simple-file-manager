@@ -15,9 +15,9 @@ $allow_create_folder = true; // Set to false to disable folder creation
 $allow_upload = true; // Set to true to allow upload files
 $allow_direct_link = true; // Set to false to only allow downloads and not direct link
 
-$disallowed_extensions = ['php'];  // must be an array. Extensions disallowed to be uploaded
+$disallowed_extensions = array('php');  // must be an array. Extensions disallowed to be uploaded
 
-$hidden_extensions = ['php']; // must be an array of lowercase file extensions. Extensions hidden in directory index
+$hidden_extensions = array('php'); // must be an array of lowercase file extensions. Extensions hidden in directory index
 
 $PASSWORD = '';  // Set the password, to access the file manager... (optional)
 
@@ -62,12 +62,12 @@ $file = $_REQUEST['file'] ?: '.';
 if($_GET['do'] == 'list') {
 	if (is_dir($file)) {
 		$directory = $file;
-		$result = [];
-		$files = array_diff(scandir($directory), ['.','..']);
+		$result = array();
+		$files = array_diff(scandir($directory), array('.','..'));
 	    foreach($files as $entry) if($entry !== basename(__FILE__) && !in_array(strtolower(pathinfo($entry, PATHINFO_EXTENSION)), $hidden_extensions)) {
     		$i = $directory . '/' . $entry;
 	    	$stat = stat($i);
-	        $result[] = [
+	        $result[] = array(
 	        	'mtime' => $stat['mtime'],
 	        	'size' => $stat['size'],
 	        	'name' => basename($i),
@@ -78,12 +78,12 @@ if($_GET['do'] == 'list') {
 	        	'is_readable' => is_readable($i),
 	        	'is_writable' => is_writable($i),
 	        	'is_executable' => is_executable($i),
-	        ];
+	        );
 	    }
 	} else {
 		err(412,"Not a Directory");
 	}
-	echo json_encode(['success' => true, 'is_writable' => is_writable($file), 'results' =>$result]);
+	echo json_encode(array('success' => true, 'is_writable' => is_writable($file), 'results' =>$result));
 	exit;
 } elseif ($_POST['do'] == 'delete') {
 	if($allow_delete) {
@@ -121,7 +121,7 @@ if($_GET['do'] == 'list') {
 }
 function rmrf($dir) {
 	if(is_dir($dir)) {
-		$files = array_diff(scandir($dir), ['.','..']);
+		$files = array_diff(scandir($dir), array('.','..'));
 		foreach ($files as $file)
 			rmrf("$dir/$file");
 		rmdir($dir);
@@ -130,11 +130,11 @@ function rmrf($dir) {
 	}
 }
 function is_recursively_deleteable($d) {
-	$stack = [$d];
+	$stack = array($d);
 	while($dir = array_pop($stack)) {
 		if(!is_readable($dir) || !is_writable($dir)) 
 			return false;
-		$files = array_diff(scandir($dir), ['.','..']);
+		$files = array_diff(scandir($dir), array('.','..'));
 		foreach($files as $file) if(is_dir($file)) {
 			$stack[] = "$dir/$file";
 		}
@@ -144,9 +144,9 @@ function is_recursively_deleteable($d) {
 
 // from: http://php.net/manual/en/function.realpath.php#84012
 function get_absolute_path($path) {
-        $path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path);
+        $path = str_replace(array('/', '\\'), DIRECTORY_SEPARATOR, $path);
         $parts = explode(DIRECTORY_SEPARATOR, $path);
-        $absolutes = [];
+        $absolutes = array();
         foreach ($parts as $part) {
             if ('.' == $part) continue;
             if ('..' == $part) {
@@ -160,13 +160,13 @@ function get_absolute_path($path) {
 
 function err($code,$msg) {
 	http_response_code($code);
-	echo json_encode(['error' => ['code'=>intval($code), 'msg' => $msg]]);
+	echo json_encode(array('error' => array('code'=>intval($code), 'msg' => $msg)));
 	exit;
 }
 
 function asBytes($ini_v) {
 	$ini_v = trim($ini_v);
-	$s = ['g'=> 1<<30, 'm' => 1<<20, 'k' => 1<<10];
+	$s = array('g'=> 1<<30, 'm' => 1<<20, 'k' => 1<<10);
 	return intval($ini_v) * ($s[strtolower(substr($ini_v,-1))] ?: 1);
 }
 $MAX_UPLOAD_SIZE = min(asBytes(ini_get('post_max_size')), asBytes(ini_get('upload_max_filesize')));
